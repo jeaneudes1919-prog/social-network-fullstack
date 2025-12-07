@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* DÉFINITION DES THÈMES */
+:root {
+  /* THÈME LIGHT (Défaut) */
+  --bg-primary: #f3f4f6;       /* Gris très clair */
+  --bg-secondary: #ffffff;     /* Blanc pur */
+  --text-primary: #111827;     /* Noir doux */
+  --text-secondary: #6b7280;   /* Gris texte */
+  --accent: #3b82f6;           /* Bleu standard */
+  --accent-hover: #2563eb;
+  --border: #e5e7eb;
+}
+
+[data-theme="dark"] {
+  /* THÈME DARK */
+  --bg-primary: #111827;       /* Noir bleuté */
+  --bg-secondary: #1f2937;     /* Gris foncé */
+  --text-primary: #f9fafb;     /* Blanc */
+  --text-secondary: #9ca3af;   /* Gris clair */
+  --accent: #60a5fa;           /* Bleu clair */
+  --accent-hover: #3b82f6;
+  --border: #374151;
+}
+
+[data-theme="cyber"] {
+  /* THÈME CYBER (Spécial Tech/Admin) */
+  --bg-primary: #000000;       /* Noir pur */
+  --bg-secondary: #0f172a;     /* Bleu nuit profond */
+  --text-primary: #00ff41;     /* Vert Matrix */
+  --text-secondary: #22d3ee;   /* Cyan néon */
+  --accent: #d946ef;           /* Fuschia néon */
+  --accent-hover: #c026d3;
+  --border: #33ff00;           /* Bordures vertes */
+}
+
+/* Application des variables aux classes Tailwind custom */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease; /* Transition douce entre les thèmes */
+}
