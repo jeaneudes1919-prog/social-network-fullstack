@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 
-// 1. CRÉER UN POST (MODIFIÉ AVEC TTL)
+// 1. CRÉER UN POST (MODIFIÉ AVEC TTL + CLOUDINARY)
 exports.createPost = async (req, res) => {
     const userId = req.user.id;
     // On récupère "duration" (en minutes) depuis le frontend
@@ -10,7 +10,12 @@ exports.createPost = async (req, res) => {
     let mediaUrl = null;
 
     if (req.file) {
-        mediaUrl = req.file.filename;
+        // --- ANCIEN SYSTÈME (LOCAL) ---
+        // mediaUrl = req.file.filename;
+
+        // --- NOUVEAU SYSTÈME (CLOUDINARY) ---
+        mediaUrl = req.file.path; // Cloudinary renvoie l'URL complète dans .path
+
         if (req.file.mimetype.startsWith('audio')) mediaType = 'audio';
         else if (req.file.mimetype.startsWith('image')) mediaType = 'image';
     } else if (code_snippet) {
@@ -31,12 +36,20 @@ exports.createPost = async (req, res) => {
              VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
             [userId, content, mediaType, mediaUrl, code_snippet, code_language, expiresAt]
         );
-        res.json(newPost.rows[0]);
+        
+        // On récupère les infos user pour l'affichage immédiat (optionnel mais recommandé)
+        const postWithUser = await pool.query(
+            'SELECT p.*, u.username, u.avatar_url FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1',
+            [newPost.rows[0].id]
+        );
+
+        res.json(postWithUser.rows[0]);
     } catch (err) {
         console.error(err);
         res.status(500).send("Erreur serveur");
     }
 };
+
 // 2. RÉCUPÉRER LES POSTS (AVEC FILTRE CATÉGORIE)
 exports.getAllPosts = async (req, res) => {
     const { category } = req.query; // On récupère le filtre depuis l'URL
@@ -68,8 +81,6 @@ exports.getAllPosts = async (req, res) => {
     }
 };
 
-// Remplace l'ancienne fonction toggleLike par celle-ci :
-
 // 3. RÉAGIR À UN POST (+ NOTIFICATION)
 exports.reactToPost = async (req, res) => {
     const userId = req.user.id; // MOI (celui qui like)
@@ -83,7 +94,7 @@ exports.reactToPost = async (req, res) => {
         
         const receiverId = postResult.rows[0].user_id; // L'AUTEUR du post
 
-        // 2. Gestion du Like (Code existant)
+        // 2. Gestion du Like
         const existingReaction = await pool.query(
             'SELECT * FROM likes WHERE user_id = $1 AND post_id = $2',
             [userId, postId]
@@ -129,8 +140,6 @@ exports.reactToPost = async (req, res) => {
     }
 };
 
-// ... (le code existant createPost, getAllPosts, toggleLike)
-
 // 4. AJOUTER UN COMMENTAIRE
 exports.addComment = async (req, res) => {
     const { content } = req.body;
@@ -167,7 +176,7 @@ exports.getComments = async (req, res) => {
     }
 };
 
-// 6. INCRÉMENTER LES VUES (À appeler quand on clique sur un post)
+// 6. INCRÉMENTER LES VUES
 exports.incrementViews = async (req, res) => {
     const postId = req.params.id;
     try {
@@ -179,7 +188,6 @@ exports.incrementViews = async (req, res) => {
     }
 };
 
-// AJOUTE CETTE FONCTION À LA FIN :
 // 7. SUPPRIMER UN POST (MANUELLEMENT)
 exports.deletePost = async (req, res) => {
     const postId = req.params.id;
@@ -202,6 +210,7 @@ exports.deletePost = async (req, res) => {
         res.status(500).send("Erreur serveur");
     }
 };
+
 // 8. RÉCUPÉRER LES POSTS D'UN UTILISATEUR SPÉCIFIQUE
 exports.getPostsByUser = async (req, res) => {
     const userId = req.params.id;

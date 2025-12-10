@@ -2,8 +2,15 @@ const express = require('express');
 const router = express.Router();
 const socialController = require('../controllers/socialController');
 const authMiddleware = require('../middlewares/authMiddleware');
-const upload = require('../middlewares/uploadMiddleware'); // Import Multer pour l'avatar
+
+// --- ANCIEN SYSTÈME (LOCAL) ---
+// const upload = require('../middlewares/uploadMiddleware'); // Import Multer pour l'avatar
+
+// --- NOUVEAU SYSTÈME (CLOUDINARY) ---
+const parser = require('../config/cloudinary');
+
 const userController = require('../controllers/userController'); // Import le nouveau contrôleur
+
 // 1. Routes SPÉCIFIQUES (Mots-clés fixes) - DOIVENT ÊTRE EN HAUT
 
 // GET /api/users/notifications
@@ -22,8 +29,15 @@ router.get('/search', authMiddleware, socialController.globalSearch); // On util
 router.get('/', authMiddleware, socialController.getAllUsers); 
 
 // 3. Routes DYNAMIQUES (avec :id) - DOIVENT ÊTRE EN BAS
-router.put('/:id', authMiddleware, upload.single('avatar'), userController.updateUser); // Modifier
+
+// ANCIENNE ROUTE LOCALE :
+// router.put('/:id', authMiddleware, upload.single('avatar'), userController.updateUser); // Modifier
+
+// NOUVELLE ROUTE CLOUDINARY :
+router.put('/:id', authMiddleware, parser.single('avatar'), userController.updateUser); // Modifier
+
 router.delete('/:id', authMiddleware, userController.deleteUser); // Supprimer
+
 // GET /api/users/:id -> Profil public + stats
 // ATTENTION : Cette route doit être la DERNIÈRE pour les GET car elle attrape tout ce qui n'a pas été trouvé avant !
 router.get('/:id', socialController.getUserProfile); 
@@ -33,7 +47,5 @@ router.post('/:id/follow', authMiddleware, socialController.followUser);
 
 // DELETE /api/users/:id/unfollow
 router.delete('/:id/unfollow', authMiddleware, socialController.unfollowUser);
-
-
 
 module.exports = router;

@@ -4,7 +4,13 @@ const pool = require('../config/db');
 exports.createStory = async (req, res) => {
     const userId = req.user.id;
     const { content, theme } = req.body;
-    const filename = req.file ? req.file.filename : null;
+    
+    // --- ANCIEN SYSTÈME (LOCAL) ---
+    // const filename = req.file ? req.file.filename : null;
+
+    // --- NOUVEAU SYSTÈME (CLOUDINARY) ---
+    // Cloudinary renvoie l'URL complète dans .path
+    const filename = req.file ? req.file.path : null;
 
     if (!filename && (!content || content.trim() === "")) return res.status(400).json({ message: "Contenu requis" });
     const mediaType = filename ? 'image' : 'text';
@@ -96,7 +102,6 @@ exports.getStoryViewers = async (req, res) => {
             ORDER BY si.viewed_at DESC
         `, [storyId]);
         
-        // C'était ICI la faute : 'viewuers' n'existait pas !
         res.json(viewers.rows); 
     } catch (err) { 
         console.error("Erreur getViewers:", err);
