@@ -17,29 +17,36 @@ const Profile = () => {
   
   // UI States
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false); // Mode édition activé ?
+  const [isEditing, setIsEditing] = useState(false); 
   
   // Form States
   const [editForm, setEditForm] = useState({ username: '', bio: '' });
   const [avatarFile, setAvatarFile] = useState(null);
   const [previewAvatar, setPreviewAvatar] = useState(null);
 
+  // --- CORRECTION IMAGE : Helper pour Cloudinary ---
+  const getAvatarUrl = (path) => {
+    if (!path) return null;
+    // Si c'est un lien Cloudinary (commence par http), on l'affiche
+    if (path.startsWith('http')) return path;
+    // Sinon (ancien lien local cassé par Render), on retourne null pour afficher l'initiale
+    return null;
+  };
+
   // 1. CHARGEMENT DES DONNÉES
   const fetchData = async () => {
     try {
         setLoading(true);
-        // Profil
         const userRes = await api.get(`/users/${id}`);
         setProfile(userRes.data);
         setEditForm({ username: userRes.data.username, bio: userRes.data.bio || '' });
 
-        // Posts de l'utilisateur
         const postRes = await api.get(`/posts/user/${id}`);
         setPosts(postRes.data);
+        
+        // Vérification sommaire du follow
+        if (userRes.data.isFollowing) setIsFollowing(true);
 
-        // Vérif follow (si ce n'est pas moi)
-        // Note: Idéalement le backend devrait dire "is_followed: true" dans /users/:id
-        // Pour l'instant on laisse simple.
     } catch (err) {
         console.error(err);
     } finally {
@@ -51,12 +58,17 @@ const Profile = () => {
     fetchData();
   }, [id]);
 
-  // 2. GESTION DES ACTIONS (Follow/Message)
+  // 2. GESTION DES ACTIONS
   const handleFollow = async () => {
     try {
         if (isFollowing) await api.delete(`/users/${id}/unfollow`);
         else await api.post(`/users/${id}/follow`);
         setIsFollowing(!isFollowing);
+        // Mise à jour locale des stats pour l'effet immédiat
+        setProfile(prev => ({
+            ...prev,
+            followersCount: isFollowing ? prev.followersCount - 1 : prev.followersCount + 1
+        }));
     } catch (err) { console.error(err); }
   };
 
@@ -64,20 +76,20 @@ const Profile = () => {
     navigate('/messages', { state: { contact: profile } });
   };
 
-  // 3. GESTION DE LA MISE À JOUR (UPDATE)
+  // 3. GESTION DE LA MISE À JOUR
   const handleUpdate = async (e) => {
     e.preventDefault();
     const formData = new FormData();
     formData.append('username', editForm.username);
     formData.append('bio', editForm.bio);
+    
     if (avatarFile) formData.append('avatar', avatarFile);
     else formData.append('existingAvatar', profile.avatar_url);
 
     try {
         const res = await api.put(`/users/${id}`, formData);
-        setProfile({ ...profile, ...res.data }); // Mise à jour locale
+        setProfile({ ...profile, ...res.data }); 
         
-        // Si c'est moi, je mets à jour le localStorage aussi
         if (currentUser.id === parseInt(id)) {
             localStorage.setItem('user', JSON.stringify({ ...currentUser, ...res.data }));
         }
@@ -89,10 +101,9 @@ const Profile = () => {
     }
   };
 
-  // 4. GESTION DE LA SUPPRESSION (DELETE)
+  // 4. SUPPRESSION
   const handleDeleteAccount = async () => {
-    if (!window.confirm("⚠️ ATTENTION : Cette action est irréversible. Voulez-vous vraiment supprimer votre compte et tous vos posts ?")) return;
-    
+    if (!window.confirm("⚠️ ATTENTION : Cette action est irréversible. Voulez-vous vraiment supprimer votre compte ?")) return;
     try {
         await api.delete(`/users/${id}`);
         localStorage.clear();
@@ -103,7 +114,7 @@ const Profile = () => {
     }
   };
 
-  // 5. GESTION IMAGE PREVIEW
+  // 5. PREVIEW IMAGE
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -116,9 +127,10 @@ const Profile = () => {
   if (!profile) return <div className="text-center p-20">Utilisateur introuvable.</div>;
 
   const isMyProfile = currentUser?.id === profile.id;
+  const displayAvatar = previewAvatar || getAvatarUrl(profile.avatar_url);
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto pb-20">
       
       {/* --- BANNIÈRE & INFO --- */}
       <div className="bg-secondary rounded-2xl overflow-hidden border border-borderCol shadow-sm mb-6 relative">
@@ -137,17 +149,17 @@ const Profile = () => {
         <div className="px-8 pb-8 relative">
             {/* AVATAR */}
             <div className="absolute -top-16 left-8">
-                <div className="w-32 h-32 rounded-full bg-primary border-4 border-secondary overflow-hidden relative group">
-                    {/* Image */}
-                    {previewAvatar ? (
-                        <img src={previewAvatar} className="w-full h-full object-cover"/>
-                    ) : profile.avatar_url ? (
-                        <img src={`http://localhost:5000/uploads/${profile.avatar_url}`} className="w-full h-full object-cover"/>
+                <div className="w-32 h-32 rounded-full bg-primary border-4 border-secondary overflow-hidden relative group flex items-center justify-center">
+                    {/* ICI LA CORRECTION : On utilise displayAvatar */}
+                    {displayAvatar ? (
+                        <img src={displayAvatar} className="w-full h-full object-cover"/>
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center font-bold text-4xl text-accent bg-accent/10">{profile.username[0]}</div>
+                        <div className="w-full h-full flex items-center justify-center font-bold text-4xl text-accent bg-accent/10">
+                            {profile.username[0].toUpperCase()}
+                        </div>
                     )}
 
-                    {/* Overlay Changement Photo (Mode Édition) */}
+                    {/* Overlay Changement Photo */}
                     {isEditing && (
                         <label className="absolute inset-0 bg-black/50 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">
                             <Camera className="text-white" size={32} />
@@ -157,7 +169,7 @@ const Profile = () => {
                 </div>
             </div>
             
-            {/* ACTIONS BAR (Droite) */}
+            {/* ACTIONS BAR */}
             <div className="flex justify-end mt-4 h-10">
                 {isEditing ? (
                     <div className="flex gap-2">
@@ -174,7 +186,7 @@ const Profile = () => {
                             <button onClick={handleMessage} className="px-4 py-2 rounded-full font-bold bg-secondary border border-borderCol hover:bg-primary flex items-center gap-2">
                                 <MessageSquare size={18}/> Message
                             </button>
-                            <button onClick={handleFollow} className={`px-4 py-2 rounded-full font-bold flex items-center gap-2 ${isFollowing ? 'border border-borderCol' : 'bg-textMain text-primary'}`}>
+                            <button onClick={handleFollow} className={`px-4 py-2 rounded-full font-bold flex items-center gap-2 transition-all ${isFollowing ? 'border border-borderCol text-textSub' : 'bg-textMain text-primary'}`}>
                                 {isFollowing ? <><UserCheck size={18}/> Abonné</> : <><UserPlus size={18}/> Suivre</>}
                             </button>
                         </div>
@@ -192,7 +204,7 @@ const Profile = () => {
                                 type="text" 
                                 value={editForm.username} 
                                 onChange={(e) => setEditForm({...editForm, username: e.target.value})}
-                                className="w-full bg-primary border border-borderCol rounded-lg p-2 outline-none focus:border-accent font-bold text-lg"
+                                className="w-full bg-primary border border-borderCol rounded-lg p-2 outline-none focus:border-accent font-bold text-lg text-textMain"
                             />
                         </div>
                         <div>
@@ -200,7 +212,7 @@ const Profile = () => {
                             <textarea 
                                 value={editForm.bio} 
                                 onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
-                                className="w-full bg-primary border border-borderCol rounded-lg p-2 outline-none focus:border-accent resize-none h-24"
+                                className="w-full bg-primary border border-borderCol rounded-lg p-2 outline-none focus:border-accent resize-none h-24 text-textMain"
                                 placeholder="Dis quelque chose sur toi..."
                             />
                         </div>
@@ -213,7 +225,7 @@ const Profile = () => {
                     </div>
                 ) : (
                     <>
-                        <h1 className="text-3xl font-bold flex items-center gap-2">
+                        <h1 className="text-3xl font-bold flex items-center gap-2 text-textMain">
                             {profile.username}
                             {isMyProfile && <span className="text-xs bg-accent/20 text-accent px-2 py-1 rounded-full">C'est vous</span>}
                         </h1>
@@ -228,9 +240,9 @@ const Profile = () => {
 
                         {/* STATS */}
                         <div className="flex gap-8 mt-6 border-t border-borderCol pt-4">
-                            <div className="text-center"><span className="block font-bold text-xl text-textMain">{profile.postsCount || posts.length}</span> <span className="text-xs text-textSub uppercase">Posts</span></div>
-                            <div className="text-center"><span className="block font-bold text-xl text-textMain">{profile.followersCount || 0}</span> <span className="text-xs text-textSub uppercase">Abonnés</span></div>
-                            <div className="text-center"><span className="block font-bold text-xl text-textMain">{profile.followingCount || 0}</span> <span className="text-xs text-textSub uppercase">Suivis</span></div>
+                            <div className="text-center"><span className="block font-bold text-xl text-textMain">{posts.length}</span> <span className="text-xs text-textSub uppercase">Posts</span></div>
+                            <div className="text-center"><span className="block font-bold text-xl text-textMain">{profile.stats?.followers || 0}</span> <span className="text-xs text-textSub uppercase">Abonnés</span></div>
+                            <div className="text-center"><span className="block font-bold text-xl text-textMain">{profile.stats?.following || 0}</span> <span className="text-xs text-textSub uppercase">Suivis</span></div>
                         </div>
                     </>
                 )}
@@ -239,7 +251,7 @@ const Profile = () => {
       </div>
 
       {/* --- SECTION DES POSTS --- */}
-      <h2 className="font-bold text-xl mb-4 px-2 flex items-center gap-2">
+      <h2 className="font-bold text-xl mb-4 px-2 flex items-center gap-2 text-textMain">
          Publications <span className="bg-primary text-textSub text-sm px-2 py-1 rounded-full">{posts.length}</span>
       </h2>
 

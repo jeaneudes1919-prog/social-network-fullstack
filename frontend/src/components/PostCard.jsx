@@ -46,10 +46,11 @@ const PostCard = ({ post, onDelete }) => {
   const timeAgo = getTimeAgo(post.created_at);
 
   // Helper Image
-  const getAvatarUrl = (path) => {
+ const getAvatarUrl = (path) => {
     if (!path) return null;
-    return path.startsWith('http') ? path : `http://localhost:5000/uploads/${path}`;
-  };
+    // Si ça commence par http (Cloudinary), on affiche. Sinon, rien (null).
+    return path.startsWith('http') ? path : null; 
+};
 
   // --- LOGIQUE ACTIONS ---
 

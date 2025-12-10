@@ -23,9 +23,9 @@ const Search = () => {
   // --- HELPER IMAGE (Copié de Navbar) ---
   const getAvatarUrl = (path) => {
     if (!path) return null;
-    return path.startsWith('http') ? path : `http://localhost:5000/uploads/${path}`;
-  };
-
+    // Si ça commence par http (Cloudinary), on affiche. Sinon, rien (null).
+    return path.startsWith('http') ? path : null; 
+};
   // --- 1. LOGIQUE LIVE SEARCH (Debounce comme Navbar) ---
   useEffect(() => {
     const timer = setTimeout(() => {
