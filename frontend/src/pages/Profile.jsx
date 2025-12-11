@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { UserCheck, UserPlus, MessageSquare, MapPin, Calendar, Settings, Save, X, Trash2, Camera, Loader2 } from 'lucide-react';
 import api from '../api/axios';
 import PostCard from '../components/PostCard';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const Profile = () => {
   const { id } = useParams();
@@ -21,15 +20,15 @@ const Profile = () => {
   
   // Form States
   const [editForm, setEditForm] = useState({ username: '', bio: '' });
-  const [avatarFile, sete] = useState(null);
+  
+  // CORRECTION ICI : "setAvatarFile" et non "sete"
+  const [avatarFile, setAvatarFile] = useState(null); 
   const [previewAvatar, setPreviewAvatar] = useState(null);
 
-  // --- CORRECTION IMAGE : Helper pour Cloudinary ---
+  // Helper pour l'avatar (Sécurité Cloudinary)
   const getAvatarUrl = (path) => {
     if (!path) return null;
-    // Si c'est un lien Cloudinary (commence par http), on l'affiche
     if (path.startsWith('http')) return path;
-    // Sinon (ancien lien local cassé par Render), on retourne null pour afficher l'initiale
     return null;
   };
 
@@ -44,7 +43,6 @@ const Profile = () => {
         const postRes = await api.get(`/posts/user/${id}`);
         setPosts(postRes.data);
         
-        // Vérification sommaire du follow
         if (userRes.data.isFollowing) setIsFollowing(true);
 
     } catch (err) {
@@ -64,10 +62,13 @@ const Profile = () => {
         if (isFollowing) await api.delete(`/users/${id}/unfollow`);
         else await api.post(`/users/${id}/follow`);
         setIsFollowing(!isFollowing);
-        // Mise à jour locale des stats pour l'effet immédiat
+        // Mise à jour locale des stats
         setProfile(prev => ({
             ...prev,
-            followersCount: isFollowing ? prev.followersCount - 1 : prev.followersCount + 1
+            stats: {
+                ...prev.stats,
+                followers: isFollowing ? prev.stats.followers - 1 : prev.stats.followers + 1
+            }
         }));
     } catch (err) { console.error(err); }
   };
@@ -95,6 +96,7 @@ const Profile = () => {
         }
         
         setIsEditing(false);
+        setAvatarFile(null); // Reset du fichier après upload
     } catch (err) {
         alert("Erreur lors de la mise à jour.");
         console.error(err);
@@ -118,7 +120,7 @@ const Profile = () => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-        setAvatarFile(file);
+        setAvatarFile(file); // Maintenant ça marche !
         setPreviewAvatar(URL.createObjectURL(file));
     }
   };
@@ -150,7 +152,6 @@ const Profile = () => {
             {/* AVATAR */}
             <div className="absolute -top-16 left-8">
                 <div className="w-32 h-32 rounded-full bg-primary border-4 border-secondary overflow-hidden relative group flex items-center justify-center">
-                    {/* ICI LA CORRECTION : On utilise displayAvatar */}
                     {displayAvatar ? (
                         <img src={displayAvatar} className="w-full h-full object-cover"/>
                     ) : (
@@ -173,7 +174,7 @@ const Profile = () => {
             <div className="flex justify-end mt-4 h-10">
                 {isEditing ? (
                     <div className="flex gap-2">
-                        <button onClick={() => setIsEditing(false)} className="px-4 py-2 rounded-full font-bold bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center gap-2">
+                        <button onClick={() => { setIsEditing(false); setPreviewAvatar(null); }} className="px-4 py-2 rounded-full font-bold bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center gap-2">
                             <X size={18}/> Annuler
                         </button>
                         <button onClick={handleUpdate} className="px-4 py-2 rounded-full font-bold bg-accent text-white hover:bg-accentHover flex items-center gap-2 shadow-lg">
