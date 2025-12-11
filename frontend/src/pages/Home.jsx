@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../api/axios';
 import PostCard from '../components/PostCard';
 import CreatePost from '../components/CreatePost';
-import { Loader2, Zap, Code, Coffee, Sparkles, Plus, X, Trash2, Image as ImageIcon, Type, Send, Palette, Eye } from 'lucide-react';
+import { Loader2, Zap, Code, Coffee, Sparkles, Plus, X, Trash2, Image as ImageIcon, Type, Send, Palette, Eye, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- CONFIGURATION ---
@@ -17,6 +17,25 @@ const STORY_THEMES = [
 
 const QUICK_REACTIONS = ['🔥', '😂', '❤️', '😮', '👏', '😢'];
 
+// --- Composant MODAL DE CONFIRMATION (Simple pour Home.jsx) ---
+const CustomConfirm = ({ message, onConfirm, onCancel }) => (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4">
+      <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="bg-secondary rounded-xl p-6 shadow-2xl max-w-sm w-full border border-borderCol">
+        <AlertTriangle size={32} className="text-red-500 mb-4 mx-auto" />
+        <p className="text-textMain text-center mb-6">{message}</p>
+        <div className="flex gap-4 justify-center">
+          <button onClick={onCancel} className="flex-1 bg-primary text-textSub hover:bg-borderCol py-2 rounded-lg font-bold transition-colors">
+            Annuler
+          </button>
+          <button onClick={onConfirm} className="flex-1 bg-red-600 text-white hover:bg-red-700 py-2 rounded-lg font-bold transition-colors">
+            Confirmer
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+);
+// ------------------------------------------------------------------
+
 const Home = () => {
   // --- STATES ---
   const [posts, setPosts] = useState([]);
@@ -30,7 +49,8 @@ const Home = () => {
   const [storyType, setStoryType] = useState('image');
   const [showViewersList, setShowViewersList] = useState(false); 
   const [viewersData, setViewersData] = useState([]); 
-
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // NOUVEAU : État pour la confirmation
+  
   // Contenu Story Texte
   const [textStoryContent, setTextStoryContent] = useState('');
   const [currentThemeIndex, setCurrentThemeIndex] = useState(0);
@@ -124,7 +144,12 @@ const Home = () => {
         await api.post('/posts/stories', formData);
         closeCreator();
         fetchStories();
-    } catch (err) { alert("Erreur upload"); }
+        console.log("SUCCESS: Story image uploadée !"); // Remplacement alert
+    } catch (err) { 
+        console.error("Erreur upload story:", err); 
+        // Remplacement alert
+        // Si vous avez le hook: addNotification("Erreur lors de l'upload.", 'error');
+    }
   };
 
   const handleTextStoryUpload = async (e) => {
@@ -137,7 +162,12 @@ const Home = () => {
         }); 
         closeCreator();
         fetchStories();
-    } catch (err) { alert("Erreur création"); }
+        console.log("SUCCESS: Story texte publiée !"); // Remplacement alert
+    } catch (err) { 
+        console.error("Erreur création story texte:", err); 
+        // Remplacement alert
+        // Si vous avez le hook: addNotification("Erreur lors de la création.", 'error');
+    }
   };
 
   const closeCreator = () => {
@@ -150,13 +180,26 @@ const Home = () => {
   const cycleTheme = () => setCurrentThemeIndex((prev) => (prev + 1) % STORY_THEMES.length);
 
   // --- 4. SUPPRESSION & ACTIONS ---
-  const handleDeleteStory = async (storyId) => {
-    if(!window.confirm("Supprimer cette story ?")) return;
+  
+  // Fonction qui appelle l'API de suppression APRES confirmation
+  const executeDeleteStory = async () => {
+    const storyId = viewingStory.id;
+    setShowDeleteConfirm(false); // Cache la modal
     try {
         await api.delete(`/posts/stories/${storyId}`);
         setViewingStory(null);
         fetchStories();
-    } catch (err) { console.error(err); }
+        console.log("SUCCESS: Story supprimée."); // Remplacement alert
+    } catch (err) { 
+        console.error(err); 
+        // Remplacement alert
+        // Si vous avez le hook: addNotification("Erreur suppression story.", 'error');
+    }
+  };
+
+  // Handler qui ouvre la modal de confirmation
+  const handleDeleteStoryClick = () => {
+    setShowDeleteConfirm(true);
   };
 
   const handleFilterChange = (filter) => {
@@ -278,7 +321,6 @@ const Home = () => {
                         ) : (
                             // AFFICHAGE STORY
                             viewingStory.media_type === 'image' ? (
-                                {/* CORRECTION ICI : On utilise le helper pour la media_url */}
                                 <img src={getAvatarUrl(viewingStory.media_url)} className="w-full h-full object-contain" alt="Story"/>
                             ) : (
                                 <div className={`w-full h-full flex items-center justify-center p-8 text-center ${viewingStory.theme || STORY_THEMES[0]}`}>
@@ -302,8 +344,8 @@ const Home = () => {
                                     <Eye size={20} />
                                     <span>{viewersData.length} vues</span>
                                 </button>
-                                {/* BOUTON SUPPRIMER */}
-                                <button onClick={() => handleDeleteStory(viewingStory.id)} className="bg-red-500/80 hover:bg-red-500 text-white p-2 rounded-full backdrop-blur-md transition-colors"><Trash2 size={20} /></button>
+                                {/* BOUTON SUPPRIMER (Ouvre la confirmation personnalisée) */}
+                                <button onClick={handleDeleteStoryClick} className="bg-red-500/80 hover:bg-red-500 text-white p-2 rounded-full backdrop-blur-md transition-colors"><Trash2 size={20} /></button>
                             </div>
                         ) : (
                             // REACTIONS POUR LES AUTRES
@@ -324,6 +366,17 @@ const Home = () => {
 
                 </motion.div>
             </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* MODAL DE CONFIRMATION DE SUPPRESSION DE STORY */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+            <CustomConfirm 
+                message="Voulez-vous vraiment supprimer cette story ?"
+                onConfirm={executeDeleteStory}
+                onCancel={() => setShowDeleteConfirm(false)}
+            />
         )}
       </AnimatePresence>
 
