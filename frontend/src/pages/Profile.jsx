@@ -21,7 +21,7 @@ const Profile = () => {
   
   // Form States
   const [editForm, setEditForm] = useState({ username: '', bio: '' });
-  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarFile, sete] = useState(null);
   const [previewAvatar, setPreviewAvatar] = useState(null);
 
   // --- CORRECTION IMAGE : Helper pour Cloudinary ---
