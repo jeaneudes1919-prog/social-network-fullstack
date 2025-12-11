@@ -37,7 +37,7 @@ const Home = () => {
 
   const user = JSON.parse(localStorage.getItem('user'));
 
-  // --- HELPERS ---
+  // --- HELPERS (CORRECTION LOCALE) ---
   const getTimeAgo = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -51,9 +51,13 @@ const Home = () => {
     return "Il y a +24h";
   };
 
+  // CORRECTION CLOUDINARY
   const getAvatarUrl = (path) => {
     if (!path) return null;
-    return path.startsWith('http') ? path : `http://localhost:5000/uploads/${path}`;
+    // Si l'URL commence par http (Cloudinary), on la retourne directement
+    if (path.startsWith('http')) return path;
+    // Sinon (si c'était un ancien path local), on ignore pour éviter le localhost
+    return null; 
   };
 
   // --- 1. CHARGEMENT DONNÉES ---
@@ -114,6 +118,8 @@ const Home = () => {
     if (!file) return;
     const formData = new FormData();
     formData.append('media', file);
+    formData.append('theme', 'Simple'); // Ajout du thème par défaut pour le backend
+    
     try {
         await api.post('/posts/stories', formData);
         closeCreator();
@@ -203,6 +209,7 @@ const Home = () => {
                 <div className={`w-16 h-16 rounded-full p-[2px] bg-gradient-to-tr from-accent to-purple-500`}>
                     <div className={`w-full h-full rounded-full bg-primary border-2 border-primary overflow-hidden relative flex items-center justify-center ${story.media_type === 'text' ? story.theme || STORY_THEMES[0] : 'bg-gray-800'}`}>
                         {story.media_type === 'image' && story.avatar_url ? (
+                            // Utilisation de getAvatarUrl pour l'avatar dans la liste
                             <img src={getAvatarUrl(story.avatar_url)} className="w-full h-full object-cover"/>
                         ) : story.media_type === 'image' ? (
                             <span className="font-bold text-white">{story.username[0]}</span>
@@ -233,6 +240,7 @@ const Home = () => {
                     <div className="absolute top-0 left-0 w-full p-4 bg-gradient-to-b from-black/60 to-transparent z-20 flex justify-between items-start">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full overflow-hidden border border-white/50 bg-gray-500">
+                                 {/* Utilisation de getAvatarUrl ici aussi */}
                                  {viewingStory.avatar_url ? <img src={getAvatarUrl(viewingStory.avatar_url)} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center font-bold text-white">{viewingStory.username[0]}</div>}
                             </div>
                             <div className="flex flex-col">
@@ -270,7 +278,8 @@ const Home = () => {
                         ) : (
                             // AFFICHAGE STORY
                             viewingStory.media_type === 'image' ? (
-                                <img src={`http://localhost:5000/uploads/${viewingStory.media_url}`} className="w-full h-full object-contain" alt="Story"/>
+                                {/* CORRECTION ICI : On utilise le helper pour la media_url */}
+                                <img src={getAvatarUrl(viewingStory.media_url)} className="w-full h-full object-contain" alt="Story"/>
                             ) : (
                                 <div className={`w-full h-full flex items-center justify-center p-8 text-center ${viewingStory.theme || STORY_THEMES[0]}`}>
                                     <p className="text-white font-bold text-3xl md:text-4xl leading-tight drop-shadow-lg break-words">
